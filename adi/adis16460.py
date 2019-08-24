@@ -31,15 +31,48 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from adi.ad9361 import *
+from adi.rx_tx import rx_tx
+from adi.context_manager import context_manager
 
-from adi.ad9371 import *
 
-from adi.adrv9009 import *
+class adis16460(rx_tx, context_manager):
+    """ ADIS16460 Compact, Precision, Six Degrees of Freedom Inertial Sensor """
 
-from adi.adrv9009_zu11eg import *
+    complex_data = False
+    rx_channel_names = [
+        "anglvel_x",
+        "anglvel_y",
+        "anglvel_z",
+        "accel_x",
+        "accel_y",
+        "accel_z",
+    ]
+    device_name = ""
+    rx_enabled_channels = [0, 1, 2, 3, 4, 5]
+    tx_enabled_channels = []
 
-from adi.adis16460 import *
+    def __init__(self, uri=""):
 
-__version__ = "0.0.2"
-name = "Analog Devices Hardware Interfaces"
+        context_manager.__init__(self, uri, self.device_name)
+
+        self.ctrl = self.ctx.find_device("adis16460")
+        self.rxadc = self.ctx.find_device("adis16460")
+        rx_tx.__init__(self, self.rx_enabled_channels, self.tx_enabled_channels)
+
+    @property
+    def sample_rate(self):
+        """sample_rate: Sample rate in samples per second"""
+        return self.get_iio_dev_attr("sampling_frequency", False)
+
+    @sample_rate.setter
+    def sample_rate(self, value):
+        self.set_iio_dev_attr_str("sampling_frequency", False, value)
+
+    @property
+    def current_timestamp_clock(self):
+        """current_timestamp_clock: Source clock for timestamps"""
+        return self.get_iio_dev_attr("current_timestamp_clock", False)
+
+    @current_timestamp_clock.setter
+    def current_timestamp_clock(self, value):
+        self.set_iio_dev_attr_str("current_timestamp_clock", False, value)

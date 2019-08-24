@@ -125,11 +125,11 @@ class rx(attribute):
         x = np.frombuffer(data, dtype=np.int16)
         indx = 0
         sig = []
-        l = len(self.__rx_enabled_channels)
+        l = len(self.rx_enabled_channels)
         for c in range(l):
             sig.append(x[c::l])
         # Don't return list if a single channel
-        if self.__rx_enabled_channels == 1:
+        if self.rx_enabled_channels == 1:
             return sig[0]
         return sig
 
@@ -246,8 +246,10 @@ class rx_tx(rx, tx, phy):
     def __init__(self, rx_enabled_channels, tx_enabled_channels):
         self.num_rx_channels = len(self.rx_channel_names)
         self.num_tx_channels = len(self.tx_channel_names)
-        rx.__init__(self, rx_enabled_channels)
-        tx.__init__(self, tx_enabled_channels)
+        if rx_enabled_channels:
+            rx.__init__(self, rx_enabled_channels)
+        if tx_enabled_channels:
+            tx.__init__(self, tx_enabled_channels)
 
     def __del__(self):
         rx.__del__(self)
