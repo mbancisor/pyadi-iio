@@ -33,17 +33,18 @@
 
 import re
 
+
 def get_numbers(s):
     v = re.findall("[-+]?[.]?[\d]+(?:,\d\d\d)*[\.]?\d*(?:[eE][-+]?\d+)?", s)
     v = [float(i) for i in v]
-    if len(v)==1:
+    if len(v) == 1:
         v = v[0]
         if int(v) == v:
             v = int(v)
     return v
 
+
 class attribute:
-    
     def _set_iio_attr(self, channel_name, attr_name, output, value, _ctrl=None):
         if _ctrl:
             channel = _ctrl.find_channel(channel_name, output)
@@ -62,7 +63,9 @@ class attribute:
         return channel.attrs[attr_name].value
 
     def _get_iio_attr(self, channel_name, attr_name, output, _ctrl=None):
-        return get_numbers(self._get_iio_attr_str(channel_name, attr_name, output, _ctrl))
+        return get_numbers(
+            self._get_iio_attr_str(channel_name, attr_name, output, _ctrl)
+        )
 
     def _set_iio_dev_attr_str(self, attr_name, value, _ctrl=None):
         try:
