@@ -12,8 +12,12 @@ install:
 - make
 - sudo make install
 - cd ..
-- sudo pip install -r requirements.txt
-- sudo pip install -r requirements_doc.txt
+- sudo apt-get install -y python3-pip python3-setuptools
+- sudo pip3 install --upgrade -v -r requirements.txt
+- sudo pip3 install --upgrade -v -r requirements_test.txt
+# pip  installs parameterized in the wrong place, inlcuding py3.5 would break numpy
+- sudo cp -r /usr/lib/python3.5/site-packages/parameterized /usr/lib/python3.6/site-packages/
+- sudo pip3 install --upgrade -v -r requirements_doc.txt
 script:
 - export PYTHONPATH=$PYTHONPATH:'/usr/lib/python3.6/site-packages'
 - python -m unittest -v
