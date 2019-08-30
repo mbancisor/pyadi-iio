@@ -31,12 +31,15 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import print_function
-import unittest
-import numpy as np
-from adi import Pluto
-import iio
+from nose.tools import assert_equal
+from parameterized import parameterized, parameterized_class
 
+import unittest
+import math
+import numpy as np
+import random
+import iio
+from adi import Pluto
 
 dev_checked = False
 found_dev = False
@@ -66,77 +69,33 @@ def check_dev():
     return found_dev
 
 
-class TestPlutoComplex(unittest.TestCase):
-    # do_plots = False
+scalar_properties = [
+    {"attr": "tx_hardwaregain", "start": -89.75, "stop": 0.0, "step": 0.25},
+    {"attr": "rx_lo", "start": 70000000, "stop": 6000000000, "step": 1, "tol": 8},
+    {"attr": "tx_lo", "start": 70000000, "stop": 6000000000, "step": 1, "tol": 8},
+    {"attr": "sample_rate", "start": 2084000, "stop": 30720000, "step": 1, "tol": 4},
+]
 
-    def setUp(self):
-        pass
 
-    def tearDown(self):
-        pass
+@parameterized_class(scalar_properties)
+@unittest.skipUnless(check_dev(), "PlutoSDR not attached")
+class TestPlutoAttr(unittest.TestCase):
+    tol = 0.0000001
 
-    def freq_est(self, y, fs):
-        N = len(y)
-        T = 1.0 / fs
-        yf = np.fft.fft(y)
-        yf = np.fft.fftshift(yf)
-        xf = np.linspace(-1.0 / (2.0 * T), 1.0 / (2.0 * T), N)
-        # if self.do_plots:
-        #     import matplotlib.pyplot as plt
-        #
-        #     fig, ax = plt.subplots()
-        #     ax.plot(xf, 2.0 / N * np.abs(yf))
-        #     plt.show()
-        indx = np.argmax(np.abs(yf))
-        return xf[indx]
-
-    @unittest.skipUnless(check_dev(), "PlutoSDR not attached")
-    def testPlutoADC(self):
-        # See if we can get non-zero data from Pluto
+    def test_pluto_attribute_single_value(self):
         sdr = Pluto()
-        data = sdr.rx()
-        s = np.sum(np.abs(data))
-        self.assertGreater(s, 0, "check non-zero data")
-
-    @unittest.skipUnless(check_dev(), "PlutoSDR not attached")
-    def testPlutoDAC(self):
-        # See if we can tone from Pluto using DMAs
-        sdr = Pluto()
-        sdr.tx_lo = 1000000000
-        sdr.rx_lo = 1000000000
-        sdr.tx_cyclic_buffer = True
-        sdr.tx_hardwaregain = -30
-        sdr.gain_control_mode = "slow_attack"
-        sdr.rx_buffer_size = 2 ** 20
-        # Create a sinewave waveform
-        RXFS = int(sdr.sample_rate)
-        fc = RXFS * 0.1
-        N = 2 ** 15
-        ts = 1 / float(RXFS)
-        t = np.arange(0, N * ts, ts)
-        i = np.cos(2 * np.pi * t * fc) * 2 ** 15 * 0.5
-        q = np.sin(2 * np.pi * t * fc) * 2 ** 15 * 0.5
-        iq = i + 1j * q
-        # Pass through SDR
-        sdr.tx(iq)
-        for _ in range(5):
-            data = sdr.rx()
-
-        tone_freq = self.freq_est(data, RXFS)
-
-        # if self.do_plots:
-        #     import matplotlib.pyplot as plt
-        #
-        #     reals = np.real(data)
-        #     plt.plot(reals)
-        #     imags = np.imag(data)
-        #     plt.plot(imags)
-        #     plt.xlabel("Samples")
-        #     plt.ylabel("Amplitude [dbFS]")
-        #     plt.show()
-
-        diff = np.abs(tone_freq - fc)
-        self.assertGreater(fc * 0.01, diff, "Frequency offset")
+        # Pick random number in operational range
+        numints = int((self.stop - self.start) / self.step)
+        ind = random.randint(0, numints + 1)
+        val = self.start + self.step * ind
+        # Check hardware
+        setattr(sdr, self.attr, val)
+        rval = float(getattr(sdr, self.attr))
+        if abs(val - rval) > self.tol:
+            print("Failed to set: " + self.attr)
+            print("Set: " + str(val))
+            print("Got: " + str(rval))
+        self.assertTrue(abs(val - rval) <= self.tol)
 
 
 if __name__ == "__main__":
