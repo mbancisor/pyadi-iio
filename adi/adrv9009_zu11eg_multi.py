@@ -35,6 +35,8 @@ import time
 from typing import List
 import threading
 import datetime
+import sys as sys_import
+import io
 
 from adi.adrv9009_zu11eg import adrv9009_zu11eg
 
@@ -49,7 +51,8 @@ class adrv9009_zu11eg_multi(object):
 
         if not isinstance(slave_uris, list):
             Exception("slave_uris must be a list")
-
+            
+        self._mcs_show_status = True
         self._dma_show_arming = False
         self._jesd_show_status = True
         self._rx_initialized = False
@@ -75,21 +78,37 @@ class adrv9009_zu11eg_multi(object):
             dev.rx_buffer_size = value
 
     def __read_jesd_status_all_devs(self, attr, islink=False):
+        out=""
         for dev in self.slaves + [self.master]:
             if islink:
                 devs = dev._jesd.get_all_link_statuses()
                 for dev in devs:
                     lanes = devs[dev]
-                    print("JESD {}: ".format(dev), end="")
+                    out = out + "JESD {}: ".format(dev)
                     for lane in lanes:
                         if attr in lanes[lane]:
-                            print(" {}".format(lanes[lane][attr]), end="")
-                    print("")
+                            out=out+" {}".format(lanes[lane][attr])
+                    out = out +"\n"
             else:
                 s = dev._jesd.get_all_statuses()
                 for dev in s:
                     if attr in s[dev]:
-                        print("JESD {}: {} ({})".format(attr, s[dev][attr], dev))
+                        out=out+"JESD {}: {} ({})".format(attr, s[dev][attr], dev) + "\n"
+            return out
+
+    def __read_all_jesd_status(self):
+        output_string=""
+        all_attrs=[("Link status", False),
+                   ("SYSREF captured", False),
+                   ("SYSREF alignment error", False),
+                   ("Errors", True),
+                   ("Initial Lane Alignment Sequence", True),
+                   ("Initial Frame Synchronization", True) ]
+        for attr in all_attrs:
+            output_string = output_string + attr[0] + "\n"
+            output_string = output_string + self.__read_jesd_status_all_devs(attr[0],attr[1])
+
+        return output_string
 
     def __read_jesd_status(self):
         self.__read_jesd_status_all_devs("Link status")
@@ -139,6 +158,7 @@ class adrv9009_zu11eg_multi(object):
 
     def __unsync(self):
         for dev in [self.master] + self.slaves:
+            print("--UNSYNC--", dev.uri)
             dev._clock_chip.reg_write(0x1, 0x61)
             dev._clock_chip_carrier.reg_write(0x1, 0x61)
             dev._clock_chip_ext.reg_write(0x1, 0x01)
@@ -179,6 +199,7 @@ class adrv9009_zu11eg_multi(object):
             time.sleep(0.1)
 
     def __sync(self):
+        print("--SYNC--")
         # Reseed request to clk1 -----> syncs the output of the 1st clk
         # iio_reg hmc7044-ext 0x1 0x80
         self.master._clock_chip_ext.reg_write(0x1, 0x80)
@@ -188,14 +209,14 @@ class adrv9009_zu11eg_multi(object):
         # pulse request to CLK1----> syncs the outputs of CLK2
         # iio_attr -q -d hmc7044-ext sysref_request 1
         self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
-        time.sleep(0.1)
+        time.sleep(1)
 
         # CLK2 sync pin mode as Pulsor so it doesn't resync on next pulse
         # iio_reg hmc7044-car 0x5 0x82
         for slave in self.slaves:
             slave._clock_chip_carrier.reg_write(0x5, 0x82)
 
-        # CLK2 sync pin mode as Pulsor so it doesn't resync on next pulse
+        # CLK2 sync pi3n mode as Pulsor so it doesn't resync on next pulse
         # iio_reg hmc7044-car 0x5 0x82
         self.master._clock_chip_carrier.reg_write(0x5, 0x82)
         time.sleep(0.1)
@@ -203,7 +224,7 @@ class adrv9009_zu11eg_multi(object):
         # pulse request to CLK1----> syncs the outputs of CLK3
         # iio_attr -q -d hmc7044-ext sysref_request 1
         self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
-        time.sleep(0.1)
+        time.sleep(1)
         # CLK3 sync pin mode as Pulsor so it doesn't resync on next pulse
         # iio_reg hmc7044 0x5 0x83
         self.master._clock_chip.reg_write(0x5, 0x83)
@@ -214,7 +235,9 @@ class adrv9009_zu11eg_multi(object):
             slave._clock_chip.reg_write(0x5, 0x83)
 
     def __mcs(self):
+        
         for dev in self.slaves + [self.master]:
+            print("--MCS--", dev.uri)
             # 8 pulses on pulse generator request
             # iio_reg hmc7044 0x5a 4
             dev._clock_chip.reg_write(0x5A, 5)
@@ -228,36 +251,14 @@ class adrv9009_zu11eg_multi(object):
         # step 2
         # iio_attr -q -d hmc7044-ext sysref_request 1
         self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
-        for dev in [self.master] + self.slaves:
-            # iio_attr  -q -d adrv9009-phy multichip_sync 11 >/dev/null 2>&1
-            # iio_attr  -q -d adrv9009-phy-b multichip_sync 11 >/dev/null 2>&1
-            # dev._ctrl.attrs["multichip_sync"].value = "11"
-            # dev._ctrl_b.attrs["multichip_sync"].value = "11"
-            pass
 
         # step 3 & 4
         for dev in [self.master] + self.slaves:
-            try:
                 dev._ctrl.attrs["multichip_sync"].value = "3"
-            except OSError:
-                print("OSERROR1")
-                pass
-            try:
                 dev._ctrl_b.attrs["multichip_sync"].value = "3"
-            except OSError:
-                print("OSERROR2")
-                pass
-            try:
                 dev._ctrl.attrs["multichip_sync"].value = "4"
-            except OSError:
-                print("OSERROR3")
-                pass
-            try:
                 dev._ctrl_b.attrs["multichip_sync"].value = "4"
-            except OSError:
-                print("OSERROR4")
-                pass
-
+           
         # step 5
         self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
 
@@ -283,10 +284,10 @@ class adrv9009_zu11eg_multi(object):
         for dev in [self.master] + self.slaves:
             dev._ctrl.attrs["multichip_sync"].value = "11"
             dev._ctrl_b.attrs["multichip_sync"].value = "11"
-            # 8 pulses on pulse generator request
-            # dev._clock_chip.reg_write(0x5A, 1)
-
-        self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+        
+        for _ in range(4):
+            self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+            time.sleep(0.5)
 
         # cal RX phase correction
         for dev in self.slaves + [self.master]:
@@ -300,7 +301,7 @@ class adrv9009_zu11eg_multi(object):
 
         for _ in range(4):
             self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
-            time.sleep(1)
+            time.sleep(0.5)
 
         time.sleep(1)
                 
@@ -324,21 +325,21 @@ class adrv9009_zu11eg_multi(object):
         
     def rx(self):
         if not self._rx_initialized:
-            self.__setup_framers()
-            if self._jesd_show_status:
-                self.__read_jesd_status()
+            #self.__setup_framers()
+#            if self._jesd_show_status:
+ #               self.__read_jesd_status()
             self.__clock_chips_init()
             self.__unsync()
             self.__configure_continuous_sysref()
             self.__sync()
             self.__mcs()
-            if self._jesd_show_status:
-                self.__read_jesd_link_status()
+ #           if self._jesd_show_status:
+ #               self.__read_jesd_link_status()
             # Create buffers but do not pull data yet
             #            self.__rx_dma_arm()
             self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
             for dev in [self.master] + self.slaves:
-                dev.rx_destroy_buffer()
+ #               dev.rx_destroy_buffer()
                 dev._rx_init_channels()
             self._rx_initialized = True
         # Drop the first set of dummy data (probably aquired when running iio.Buffer.create ?)
@@ -355,8 +356,9 @@ class adrv9009_zu11eg_multi(object):
             thread = threading.Thread(target=self.__refill_samples, args=(dev, is_master))
             thread.start()
             threads.append(thread)
-        self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
         time.sleep(0.3)
+        self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+
         for thread in threads:
             thread.join()
         data = data + self.samples_master + self.samples_slave
