@@ -56,6 +56,7 @@ class adrv9009_zu11eg_multi(object):
         self._dma_show_arming = False
         self._jesd_show_status = True
         self._rx_initialized = False
+        self._rx1_initialized = False
         self.master = adrv9009_zu11eg(uri=master_uri)
         self.slaves = []
         self.samples_master = []
@@ -77,6 +78,33 @@ class adrv9009_zu11eg_multi(object):
         for dev in self.slaves + [self.master]:
             dev.rx_buffer_size = value
 
+    def __read_adrv9009_all_regs(self):
+        out=""
+        regs=[0x181,
+              0x183,
+              0x184,
+              0x185,
+              0x186,
+              0x1594,
+              0x1595,
+              0x1537]
+
+        out = out + "master\n"
+        for reg in regs:
+            out = out + "CTRL "+ hex(reg) + " " + hex(self.master._ctrl.reg_read(reg)) + "\n"
+            out = out + "CTRL_B "+ hex(reg) + " " + hex(self.master._ctrl_b.reg_read(reg)) + "\n"
+
+        i = 0
+        for slave in self.slaves:
+            out = out + "slave " + str(i) + "\n"
+            for reg in regs:
+                out = out + "CTRL "+ hex(reg) + " " + hex(slave._ctrl.reg_read(reg)) + "\n"
+                out = out + "CTRL_B "+ hex(reg) + " " + hex(slave._ctrl_b.reg_read(reg)) + "\n"
+            i = i + 1
+
+        return out
+
+
     def __read_jesd_status_all_devs(self, attr, islink=False):
         out=""
         for dev in self.slaves + [self.master]:
@@ -94,7 +122,7 @@ class adrv9009_zu11eg_multi(object):
                 for dev in s:
                     if attr in s[dev]:
                         out=out+"JESD {}: {} ({})".format(attr, s[dev][attr], dev) + "\n"
-            return out
+        return out
 
     def __read_all_jesd_status(self):
         output_string=""
@@ -303,8 +331,25 @@ class adrv9009_zu11eg_multi(object):
             self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
             time.sleep(0.5)
 
+        for dev in self.slaves + [self.master]:
+            dev.trx_lo = 1000000000
+            dev.trx_lo_chip_b = 1000000000
         time.sleep(1)
-                
+
+        # cal RX phase correction
+        for dev in self.slaves + [self.master]:
+            # go back to 1 pulse / sysref request
+            dev._clock_chip.reg_write(0x5A, 1)
+
+            dev._ctrl.attrs["calibrate_rx_phase_correction_en"].value = "1"
+            dev._ctrl.attrs["calibrate"].value = "1"
+            dev._ctrl_b.attrs["calibrate_rx_phase_correction_en"].value = "1"
+            dev._ctrl_b.attrs["calibrate"].value = "1"
+
+        for _ in range(4):
+            self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+            time.sleep(0.5)
+
     def __rx_dma_arm(self):
         for dev in self.slaves + [self.master]:
             if self._dma_show_arming:
@@ -336,7 +381,6 @@ class adrv9009_zu11eg_multi(object):
  #           if self._jesd_show_status:
  #               self.__read_jesd_link_status()
             # Create buffers but do not pull data yet
-            #            self.__rx_dma_arm()
             self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
             for dev in [self.master] + self.slaves:
  #               dev.rx_destroy_buffer()
@@ -364,4 +408,52 @@ class adrv9009_zu11eg_multi(object):
         data = data + self.samples_master + self.samples_slave
         self.samples_master = []
         self.samples_slave = []            
+        return data
+
+    def rx1(self):
+        if not self._rx1_initialized:
+
+            for dev in self.slaves + [self.master]:
+                dev.trx_lo = 4123456
+                dev.trx_lo_chip_b = 4123456
+            time.sleep(1)
+
+            for dev in self.slaves + [self.master]:
+                dev._ctrl.attrs["calibrate_rx_phase_correction_en"].value = "1"
+                dev._ctrl.attrs["calibrate"].value = "1"
+                dev._ctrl_b.attrs["calibrate_rx_phase_correction_en"].value = "1"
+                dev._ctrl_b.attrs["calibrate"].value = "1"
+
+            for _ in range(4):
+                self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+                time.sleep(0.5)
+
+            # Create buffers but do not pull data yet
+            self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+            for dev in [self.master] + self.slaves:
+                dev.rx_destroy_buffer()
+                #dev._rx_init_channels()
+            self._rx1_initialized = True
+        # Drop the first set of dummy data (probably aquired when running iio.Buffer.create ?)
+        for dev in [self.master] + self.slaves:
+            dev.rx()
+        data = []
+        self.__rx_dma_arm()
+        threads = []
+        for dev in [self.master] + self.slaves:
+            #data = data + dev.rx()
+            is_master = False
+            if dev == self.master:
+                is_master = True
+            thread = threading.Thread(target=self.__refill_samples, args=(dev, is_master))
+            thread.start()
+            threads.append(thread)
+        time.sleep(0.3)
+        self.master._clock_chip_ext.attrs["sysref_request"].value = "1"
+
+        for thread in threads:
+            thread.join()
+        data = data + self.samples_master + self.samples_slave
+        self.samples_master = []
+        self.samples_slave = []
         return data
