@@ -148,13 +148,13 @@ for run_no in range(no_of_runs):
         #     log_debug_info(multi, run_no, r, x)
 # Setup2 1 G
         if out_of_range(rx1rx2, 0.5, 2) or \
-            out_of_range(rx3rx4, 3.5, 2) or \
+            out_of_range(rx3rx4, 3.0, 2) or \
             out_of_range(rx5rx6, 0.5, 2) or \
             out_of_range(rx7rx8, -0.8, 2) or \
-            out_of_range(rx1rx3, -22, 3) or \
-            out_of_range(rx5rx7, -26, 3) or \
-            out_of_range(rx1rx5, 33, 4) or \
-            out_of_range(rx3rx7, 30, 4):
+            out_of_range(rx1rx3, -19, 3) or \
+            out_of_range(rx5rx7, -31, 3) or \
+            out_of_range(rx1rx5, 42, 4) or \
+            out_of_range(rx3rx7, 29.5, 4):
             log_debug_info(multi, run_no, r, x)
 
         # if rx1rx2 > 1.5 or rx1rx2 < -1.5 or rx1rx3 > -22 or rx1rx3 < -32 or rx1rx5 > 42 or rx1rx5 < 32:
@@ -192,7 +192,7 @@ for run_no in range(no_of_runs):
         # plt.plot(x[5][:100], label="Chan2 SOM B")
         # plt.plot(x[6][:100], label="Chan3 SOM B")
         # plt.plot(x[7][:100], label="Chan4 SOM B")
-        #
+
         #
         # plt.legend()
         # plt.draw()
@@ -291,7 +291,7 @@ for run_no in range(no_of_runs):
         # plt.plot(x[5][:100], label="Chan2 SOM B")
         # plt.plot(x[6][:100], label="Chan3 SOM B")
         # plt.plot(x[7][:100], label="Chan4 SOM B")
-        #
+
         #
         # plt.legend()
         # plt.draw()

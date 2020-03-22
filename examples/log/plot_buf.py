@@ -11,8 +11,8 @@ def mean_err(idx,my_data):
     return mean, err
 
 if len(sys.argv) > 1:
-    path=sys.argv[1]
-#    file_name = sys.argv[2]
+#    path=sys.argv[1]
+    file_name = sys.argv[1]
 else:
     print("Specify file name ... ")
     exit()
@@ -25,7 +25,7 @@ else:
 #plt.legend()
 #plt.draw()
 #my_data = genfromtxt(path + '/log.csv', delimiter=',')
-my_data = genfromtxt('log.csv', delimiter=',')
+my_data = genfromtxt(file_name, delimiter=',')
 rx1rx2 = my_data[:,1]
 rx1rx3 = my_data[:,2]
 rx1rx5 = my_data[:,3]
@@ -71,6 +71,8 @@ plt.errorbar(l, mean, yerr = err, xerr = None, label="SOM AB 1")
 idx += 3
 mean, err = mean_err(idx,my_data)
 plt.errorbar(l, mean, yerr = err, xerr = None, label="SOM AB 2")
+
+plt.legend()
 plt.draw()
 
 
