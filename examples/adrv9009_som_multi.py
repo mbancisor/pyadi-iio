@@ -84,8 +84,8 @@ for run_no in range(no_of_runs):
 
     # Create radio
     # def run_dev():
-    master = "ip:192.168.1.60"
-    slave = "ip:192.168.1.61"
+    master = "ip:192.168.0.60"
+    slave = "ip:192.168.0.61"
 
     #master = "ip:10.48.65.100"
     #slave = "ip:10.48.65.107"
@@ -117,6 +117,10 @@ for run_no in range(no_of_runs):
     test_log_file_name = "log.csv"
     test_log_file_path = log_path + test_log_file_name
 
+    test_log_file_name_1 = "log1.csv"
+    test_log_file_path_1 = log_path + test_log_file_name_1
+
+
     log = [[], [], [], [], [], [], [], []]
     log1 = [[], [], [], [], [], [], [], []]
 
@@ -147,14 +151,14 @@ for run_no in range(no_of_runs):
         #     out_of_range(rx3rx7, 37, 4):
         #     log_debug_info(multi, run_no, r, x)
 # Setup2 1 G
-        if out_of_range(rx1rx2, 0.5, 2) or \
-            out_of_range(rx3rx4, 3.0, 2) or \
-            out_of_range(rx5rx6, 0.5, 2) or \
-            out_of_range(rx7rx8, -0.8, 2) or \
-            out_of_range(rx1rx3, -19, 3) or \
-            out_of_range(rx5rx7, -31, 3) or \
-            out_of_range(rx1rx5, 42, 4) or \
-            out_of_range(rx3rx7, 29.5, 4):
+        if out_of_range(rx1rx2, 13.0, 2) or \
+            out_of_range(rx3rx4, 1.5, 2) or \
+            out_of_range(rx5rx6, 3.0, 2) or \
+            out_of_range(rx7rx8, 8.0, 2) or \
+            out_of_range(rx1rx3, -28.0, 3) or \
+            out_of_range(rx5rx7, -9.0, 3) or \
+            out_of_range(rx1rx5, -48.0, 4) or \
+            out_of_range(rx3rx7, -28.0, 4):
             log_debug_info(multi, run_no, r, x)
 
         # if rx1rx2 > 1.5 or rx1rx2 < -1.5 or rx1rx3 > -22 or rx1rx3 < -32 or rx1rx5 > 42 or rx1rx5 < 32:
@@ -334,6 +338,10 @@ for run_no in range(no_of_runs):
     with open(r'log/log1.csv', 'a') as f2:
         writer = csv.writer(f2)
         writer.writerow(fields)
+    with open(test_log_file_path_1, 'a') as f3:
+        writer = csv.writer(f3)
+        writer.writerow(fields)
+
 
 
 

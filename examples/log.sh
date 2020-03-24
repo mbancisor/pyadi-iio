@@ -10,18 +10,18 @@ do
 
 	python adrv9009_som_multi.py 50
 	echo "Powering OFF"
-	sshpass -p 'analog' ssh root@192.168.1.60 poweroff
-	sshpass -p 'analog' ssh root@192.168.1.61 poweroff
+	sshpass -p 'analog' ssh root@192.168.0.64 poweroff
+	sshpass -p 'analog' ssh root@192.168.0.65 poweroff
 	sleep 4
 	echo "Power OFF"	
-	python __init__.py 192.168.1.144 1 off
-	python __init__.py 192.168.1.144 2 off
-	python __init__.py 192.168.1.144 3 off
+	python __init__.py 192.168.0.224 1 off
+	python __init__.py 192.168.0.224 2 off
+	python __init__.py 192.168.0.224 3 off
 	sleep 6	
 	echo "Power ON"
-	python __init__.py 192.168.1.144 1 on
-	python __init__.py 192.168.1.144 2 on
-	python __init__.py 192.168.1.144 3 on
+	python __init__.py 192.168.0.224 1 on
+	python __init__.py 192.168.0.224 2 on
+	python __init__.py 192.168.0.224 3 on
 
 	sleep 55
 
